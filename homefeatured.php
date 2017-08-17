@@ -52,6 +52,8 @@ class HomeFeatured extends Module
 		$this->_clearCache('*');
 		Configuration::updateValue('HOME_FEATURED_NBR', 8);
 		Configuration::updateValue('HOME_FEATURED_CAT', (int)Context::getContext()->shop->getCategory());
+		Configuration::updateValue('HOME_FEATURED_CAT_ACTIVE', 1);
+		Configuration::updateValue('HOME_FEATURED_BRAND', 0);
 		Configuration::updateValue('HOME_FEATURED_RANDOMIZE', false);
 
 		if (!parent::install()
@@ -88,6 +90,14 @@ class HomeFeatured extends Module
 			$cat = Tools::getValue('HOME_FEATURED_CAT');
 			if (!Validate::isInt($cat) || $cat <= 0)
 				$errors[] = $this->l('The category ID is invalid. Please choose an existing category ID.');
+			
+			$cat_active = Tools::getValue('HOME_FEATURED_CAT_ACTIVE');
+			if (!Validate::isBool($cat_active))
+				$errors[] = $this->l('Valeur invalide pour le selecteur de categorie active.');
+			
+			$brand = Tools::getValue('HOME_FEATURED_BRAND');
+			if (!Validate::isInt($brand) || $brand < 0)
+				$errors[] = $this->l('The manufacturer ID is invalid. Please choose an existing brand ID.');
 
 			$rand = Tools::getValue('HOME_FEATURED_RANDOMIZE');
 			if (!Validate::isBool($rand))
@@ -123,12 +133,21 @@ class HomeFeatured extends Module
 	{
 		if (!isset(HomeFeatured::$cache_products))
 		{
-			$category = new Category((int)Configuration::get('HOME_FEATURED_CAT'), (int)Context::getContext()->language->id);
 			$nb = (int)Configuration::get('HOME_FEATURED_NBR');
-			if (Configuration::get('HOME_FEATURED_RANDOMIZE'))
-				HomeFeatured::$cache_products = $category->getProducts((int)Context::getContext()->language->id, 1, ($nb ? $nb : 8), null, null, false, true, true, ($nb ? $nb : 8));
-			else
-				HomeFeatured::$cache_products = $category->getProducts((int)Context::getContext()->language->id, 1, ($nb ? $nb : 8), 'position');
+			if (Configuration::get('HOME_FEATURED_CAT_ACTIVE')) {			
+				$category = new Category((int)Configuration::get('HOME_FEATURED_CAT'), (int)Context::getContext()->language->id);
+				if (Configuration::get('HOME_FEATURED_RANDOMIZE'))
+					HomeFeatured::$cache_products = $category->getProducts((int)Context::getContext()->language->id, 1, ($nb ? $nb : 8), null, null, false, true, true, ($nb ? $nb : 8));
+				else HomeFeatured::$cache_products = $category->getProducts((int)Context::getContext()->language->id, 1, ($nb ? $nb : 8), 'position');
+			}
+							
+			else {
+				$brand = new Manufacturer((int)Configuration::get('HOME_FEATURED_BRAND'), (int)Context::getContext()->language->id);
+				if (Configuration::get('HOME_FEATURED_RANDOMIZE'))
+					HomeFeatured::$cache_products = Manufacturer::getProducts($brand->id,(int)Context::getContext()->language->id, 1, ($nb ? $nb : 8), null, null, false, true, true, null);
+				else HomeFeatured::$cache_products = Manufacturer::getProducts($brand->id,(int)Context::getContext()->language->id, 1, ($nb ? $nb : 8), 'position');
+			}
+			$this->context->controller->addColorsToProductList(HomeFeatured::$cache_products);
 		}
 
 		if (HomeFeatured::$cache_products === false || empty(HomeFeatured::$cache_products))
@@ -217,6 +236,32 @@ class HomeFeatured extends Module
 					),
 					array(
 						'type' => 'switch',
+						'label' => $this->l('Activate category listing'),
+						'name' => 'HOME_FEATURED_CAT_ACTIVE',
+						'class' => 'fixed-width-xs',
+						'desc' => $this->l('on [NO] you activate the manufacturer listing'),
+						'values' => array(
+							array(
+								'id' => 'cat_on',
+								'value' => 1,
+								'label' => $this->l('YES')
+							),
+							array(
+								'id' => 'cat_off',
+								'value' => 0,
+								'label' => $this->l('NO')
+							)
+						),
+					),
+					array(
+						'type' => 'text',
+						'label' => $this->l('Manufacturer from which to pick products to be displayed'),
+						'name' => 'HOME_FEATURED_BRAND',
+						'class' => 'fixed-width-xs',
+						'desc' => $this->l('Choose the brand ID of the products that you would like to display on homepage (default: 0 for no brand).'),
+					),
+					array(
+						'type' => 'switch',
 						'label' => $this->l('Randomly display featured products'),
 						'name' => 'HOME_FEATURED_RANDOMIZE',
 						'class' => 'fixed-width-xs',
@@ -267,6 +312,8 @@ class HomeFeatured extends Module
 		return array(
 			'HOME_FEATURED_NBR' => Tools::getValue('HOME_FEATURED_NBR', (int)Configuration::get('HOME_FEATURED_NBR')),
 			'HOME_FEATURED_CAT' => Tools::getValue('HOME_FEATURED_CAT', (int)Configuration::get('HOME_FEATURED_CAT')),
+			'HOME_FEATURED_BRAND' => Tools::getValue('HOME_FEATURED_BRAND', (int)Configuration::get('HOME_FEATURED_BRAND')),
+			'HOME_FEATURED_CAT_ACTIVE' => Tools::getValue('HOME_FEATURED_CAT_ACTIVE', (int)Configuration::get('HOME_FEATURED_CAT_ACTIVE')),
 			'HOME_FEATURED_RANDOMIZE' => Tools::getValue('HOME_FEATURED_RANDOMIZE', (bool)Configuration::get('HOME_FEATURED_RANDOMIZE')),
 		);
 	}
